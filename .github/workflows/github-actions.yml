@@ -1,4 +1,7 @@
 name: assignment-test
+# Set permissions on GITHUB_TOKEN to allow updates to GitHub Actions workflows
+permissions:
+  actions: write
 on:
     push:
         tags-ignore:
