@@ -1,4 +1,10 @@
 #include "systemcalls.h"
+#include "unistd.h"
+#include "syslog.h"
+#include "stdio.h"
+#include "fcntl.h"
+#include "stdlib.h"
+#include <sys/wait.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -16,8 +22,30 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+    int r;
+    // sanity check 
+    openlog("MonProgramme", LOG_PID | LOG_PERROR, LOG_USER);
+    
+    if (cmd == NULL)
+    {
+        syslog(LOG_ERR,"could not execute NULL command");
+        return false;
+    }    
+    // execute the command
+     r = system(cmd);
 
-    return true;
+     // if the command was executed successfully, its return code is 0
+     if (r == 0)
+     {
+        syslog(LOG_USER,"command %s executed successfully",cmd);
+        return true;
+     }
+     else
+     {
+        syslog(LOG_ERR,"command %s returned an error",cmd);
+        return false;
+     }
+    
 }
 
 /**
@@ -58,6 +86,54 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    syslog(LOG_USER,"executing fork");
+    pid_t pid = fork();
+    
+    // if could not fork, reutrn false
+    if (pid == -1)
+    {
+        syslog(LOG_ERR,"Could not execute fork");
+        return false;
+    }
+    // if we are in the child process, execute the command
+    else if (pid == 0)
+    {
+        syslog(LOG_USER,"I am the child process : executing command %s",command[0]);
+        execv(command[0],&command[0]);
+        // in case of success, the execv command does not return. So, if we are here, there is an error ...
+        // the child process should exit in error
+        syslog(LOG_USER,"I am the child process :could not execute the command : give-up");
+        exit(-1);
+    }
+    // if we are in the parent, wait that the child terminates
+    else
+    {
+        int status;
+        syslog(LOG_USER,"I am the parent process : waiting for termination of child process (pid=%d)",pid);
+        
+        // wait until the child has terminated
+        pid_t terminatedPid = waitpid(pid,&status,0);
+
+        // if waitpid failed to execute, give-up
+        if (terminatedPid == -1)
+        {
+            syslog(LOG_ERR,"waitpid() returned an error - give-up");
+            return false;
+        }
+        // if the child process has been terminated with an error code, retun false
+        else if (status != 0)
+        {
+            syslog(LOG_ERR,"child process exited with error %d",status);
+            return false;
+        }
+        // nominal situation : the child process has terminated successfully
+        else
+        {
+            syslog(LOG_USER,"child process exited successfully");
+            return true;
+        }
+    }
+
 
     va_end(args);
 
@@ -92,6 +168,84 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+    if (outputfile == NULL)
+    {
+        syslog(LOG_ERR,"outputfile is NULL - give-up");
+        return false;
+        
+    }
+    // open output file
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if (fd < 0) 
+    {
+        syslog(LOG_ERR,"could not open output file - five-up");
+        return false;
+    }
+
+
+    syslog(LOG_USER,"executing fork");
+    pid_t pid = fork();
+    
+    // if could not fork, reutrn false
+    if (pid == -1)
+    {
+        syslog(LOG_ERR,"Could not execute fork");
+        return false;
+    }
+    // if we are in the child process, execute the command
+    else if (pid == 0)
+    {
+        syslog(LOG_USER,"I am the child process : redirecting standard output to file %s",outputfile);
+        
+        // @note : we use dup2(oldfd,newfd) with newfd=1 which is the file descriptor the the stndard output
+        // => this will close the standard output, and assign file descriptor=1 (i.e. standard output) to the 
+        //     outputfile
+        if (dup2(fd, 1) < 0) 
+        { 
+            syslog(LOG_ERR,"dup2 returned an error : give-up"); 
+            exit(-1); 
+        }
+
+        syslog(LOG_USER,"I am the child process : executing command %s",command[0]);
+        execv(command[0],&command[0]);
+        // in case of success, the execv command does not return. So, if we are here, there is an error ...
+        // the child process should exit in error
+        syslog(LOG_USER,"I am the child process :could not execute the command : give-up");
+        close(fd);
+        exit(-1);
+    }
+    // if we are in the parent, wait that the child terminates
+    else
+    {
+        int status;
+        syslog(LOG_USER,"I am the parent process : waiting for termination of child process (pid=%d)",pid);
+        
+        // wait until the child has terminated
+        pid_t terminatedPid = waitpid(pid,&status,0);
+
+        // close outputfile
+        syslog(LOG_USER,"closing output file");
+        close(fd);
+
+        // if waitpid failed to execute, give-up
+        if (terminatedPid == -1)
+        {
+            syslog(LOG_ERR,"waitpid() returned an error - give-up");
+            return false;
+        }
+        // if the child process has been terminated with an error code, retun false
+        else if (status != 0)
+        {
+            syslog(LOG_ERR,"child process exited with error %d",status);
+            return false;
+        }
+        // nominal situation : the child process has terminated successfully
+        else
+        {
+            syslog(LOG_USER,"child process exited successfully");
+            return true;
+        }
+    }
 
     va_end(args);
 

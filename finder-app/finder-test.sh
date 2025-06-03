@@ -48,10 +48,10 @@ then
 		exit 1
 	fi
 fi
-echo "Removing the old writer utility and compiling as a native application"
-make clean
-make
-echo "native application has been built"
+#echo "Removing the old writer utility and compiling as a native application"
+#make clean
+#make
+#echo "native application has been built"
 
 for i in $( seq 1 $NUMFILES)
 do
