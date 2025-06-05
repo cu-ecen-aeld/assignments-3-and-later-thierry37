@@ -86,11 +86,12 @@ ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
 # TODO: Add library dependencies to rootfs
-PATH_TO_COMPILER=/usr/local/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/ 
-cp ${PATH_TO_COMPILER}/aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
-cp ${PATH_TO_COMPILER}/aarch64-none-linux-gnu/libc/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64
-cp ${PATH_TO_COMPILER}/aarch64-none-linux-gnu/libc/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64
-cp ${PATH_TO_COMPILER}/aarch64-none-linux-gnu/libc/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64
+#PATH_TO_COMPILER=/usr/local/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/ 
+PATH_TO_LIBC=`${CROSS_COMPILE}gcc -print-sysroot`
+cp ${PATH_TO_LIBC}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
+cp ${PATH_TO_LIBC}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64
+cp ${PATH_TO_LIBC}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64
+cp ${PATH_TO_LIBC}/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64
 
 # TODO: Make device nodes
 sudo mknod -m 666 dev/NULL c 1 3
